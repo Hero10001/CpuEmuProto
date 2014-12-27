@@ -4,14 +4,16 @@
 #define carry    0x1
 #define parity   0x4
 #define auxcarry 0x10
-#define interupt 0x20
+//#define interupt 0x20
 #define zero     0x40
 #define sign     0x80
 
-//Source // Dest // RegPair masks
+//Source // Dest // RegPair // Condition // Restart masks
 #define Source   0x07
 #define Dest     0x38
 #define RP       0x30
+#define CCC      0x38
+#define NNN      0x38
 
 //Source Dest field
 #define A        0x07
@@ -27,6 +29,15 @@
 #define DE       0x01
 #define HL       0x02
 #define SP       0x03
+//Condition field
+#define NZ       0x00
+#define Z        0x01
+#define NC       0x02
+#define Cc       0x03//((Cc==c) carry
+#define PO       0x04
+#define PE       0x05
+#define P        0x06
+#define Mc       0x07 //(Mc==m): minus
 
 Mproc8080::Mproc8080(QObject *parent) : QObject(parent)
 {
@@ -52,6 +63,8 @@ Mproc8080::Mproc8080(QObject *parent) : QObject(parent)
     //init registers
     //a=uchar[12];
     memset(a,0,12);
+    memset(ports,0,0xFF);
+    inte=true;
     //set Flags
     f=a+1;
     *f=2;
@@ -73,12 +86,22 @@ Mproc8080::~Mproc8080()
 {
 
 }
+bool Mproc8080::getInte() const
+{
+    return inte;
+}
+
+void Mproc8080::setInte(bool value)
+{
+    inte = value;
+}
+
 
 uchar *Mproc8080::pReg(uchar s)
 {
     switch(s)
     {
-        case A:
+    case A:
         return a;
         break;
     case B:
@@ -144,6 +167,29 @@ uchar Mproc8080::setflags(ushort in)
     return out;
 }
 
+bool Mproc8080::condition(uchar con)
+{
+    switch(con)
+    {
+    case NZ:
+        return !chkFL(zero);
+    case Z:
+        return chkFL(zero);
+    case NC:
+        return !chkFL(carry);
+    case Cc:
+        return chkFL(carry);
+    case PO:
+        return !chkFL(parity);
+    case PE:
+        return chkFL(parity);
+    case P:
+        return !chkFL(sign);
+    case Mc:
+        return chkFL(sign);
+    }
+}
+
 void Mproc8080::mov(uchar opcode)
 {
     //needs to be handled AFTER HLT cuz(MOVMM->HLT)
@@ -165,7 +211,7 @@ void Mproc8080::mvi(uchar opcode)
 {
     incPC();
     uchar destination = (opcode&Dest)>>3;
-    *pReg(destination)=readP(*pc);
+    *pReg(destination)=readM(*pc);
 }
 
 void Mproc8080::lxi(uchar opcode)
@@ -173,9 +219,9 @@ void Mproc8080::lxi(uchar opcode)
     ushort* destination = pRP(((opcode&RP)>>4));
 
     incPC();
-    ushort lb = readP((*pc));
+    ushort lb = readM((*pc));
     incPC();
-    ushort hb = readP((*pc));
+    ushort hb = readM((*pc));
     ushort src = (hb<<8)|lb;
     *destination=src;
 }
@@ -183,9 +229,9 @@ void Mproc8080::lxi(uchar opcode)
 void Mproc8080::lda()
 {
     incPC();
-    ushort lb = readP((*pc));
+    ushort lb = readM((*pc));
     incPC();
-    ushort hb = readP((*pc));
+    ushort hb = readM((*pc));
     ushort memAddress =(hb<<8)|lb ;
 
     *a=readM(memAddress);
@@ -194,9 +240,9 @@ void Mproc8080::lda()
 void Mproc8080::sta()
 {
     incPC();
-    ushort lb = readP((*pc));
+    ushort lb = readM((*pc));
     incPC();
-    ushort hb = readP((*pc));
+    ushort hb = readM((*pc));
     ushort memAddress =(hb<<8)|lb ;
     mem->write(memAddress,a);
 }
@@ -204,9 +250,9 @@ void Mproc8080::sta()
 void Mproc8080::lhld()
 {
     incPC();
-    ushort lb = readP((*pc));
+    ushort lb = readM((*pc));
     incPC();
-    ushort hb = readP((*pc));
+    ushort hb = readM((*pc));
     ushort memAddress =(hb<<8)|lb ;
 
     *h=readM(memAddress);
@@ -216,9 +262,9 @@ void Mproc8080::lhld()
 void Mproc8080::shld()
 {
     incPC();
-    ushort lb = readP((*pc));
+    ushort lb = readM((*pc));
     incPC();
-    ushort hb = readP((*pc));
+    ushort hb = readM((*pc));
     ushort memAddress =(hb<<8)|lb ;
     mem->write(memAddress,(+h));
     mem->write(memAddress+1,(+h));
@@ -266,7 +312,7 @@ void Mproc8080::adi()
     incPC();
     ushort aa,bb,out;
     aa=(ushort)(*a);
-    bb=readM(readP((*pc)));
+    bb=readM(readM((*pc)));
 
     out=aa+bb;
     *a=setflags(out);//slice the hb off && set Flags
@@ -302,7 +348,7 @@ void Mproc8080::aci()
     incPC();
     ushort aa,bb,out;
     aa=(ushort)(*a);
-    bb=readM(readP((*pc)));
+    bb=readM(readM((*pc)));
 
     if(chkFL(carry))
         out=aa+bb+1;
@@ -342,7 +388,7 @@ void Mproc8080::sui()
     incPC();
     ushort aa,bb,out;
     aa=(ushort)(*a);
-    bb=readM(readP((*pc)));
+    bb=readM(readM((*pc)));
 
     bb=(~bb)+1;
     out=aa+bb;
@@ -386,7 +432,7 @@ void Mproc8080::sbi()
     incPC();
     ushort aa,bb,out;
     aa=(ushort)(*a);
-    bb=readM(readP((*pc)));
+    bb=readM(readM((*pc)));
 
     if(chkFL(carry))
         bb=(~(bb+1))+1;
@@ -595,7 +641,7 @@ void Mproc8080::cpi()
     incPC();
     ushort aa,bb,out;
     aa=(ushort)(*a);
-    bb=readM(readP((*pc)));
+    bb=readM(readM((*pc)));
 
     if(chkFL(carry))
         bb=(~(bb+1))+1;
@@ -610,6 +656,291 @@ void Mproc8080::cpi()
 
     if(chkFL(carry))
         (*f)=(*f)^carry; //invert carry
+}
+
+void Mproc8080::rlc(uchar opcode)
+{
+    uchar src = opcode&Source;
+    uchar aa;
+
+    if(src==M)
+        aa=readM((*hl));
+    else
+        aa=*pReg(src);
+
+    if(chkFL(carry)&&((aa&0x80)==0)) //set carry according to  high bit in aa
+        (*f)=(*f)^carry; //invert carry
+    else
+        setFL(carry);
+    //rotate
+    (*a)= (aa << 1) | (aa >> 7);
+}
+
+void Mproc8080::rrc(uchar opcode)
+{
+    uchar src = opcode&Source;
+    uchar aa;
+
+    if(src==M)
+        aa=readM((*hl));
+    else
+        aa=*pReg(src);
+
+    if(chkFL(carry)&&((aa&0x80)==0)) //set carry according to  high bit in aa
+        (*f)=(*f)^carry; //invert carry
+    else
+        setFL(carry);
+    //rotate
+    (*a)= (aa << 7) | (aa >> 1);
+}
+
+void Mproc8080::ral(uchar opcode)
+{
+    uchar src = opcode&Source;
+    uchar aa;
+
+    bool carryST=chkFL(carry);
+
+    if(src==M)
+        aa=readM((*hl));
+    else
+        aa=*pReg(src);
+
+    if(chkFL(carry)&&((aa&0x80)==0)) //set carry according to  high bit in aa
+        (*f)=(*f)^carry; //invert carry
+    else
+        setFL(carry);
+
+    if(carryST)
+        (*a)=(aa<<1)|0x1;
+    else
+        (*a)=aa<<1;
+
+}
+
+void Mproc8080::rar(uchar opcode)
+{
+    uchar src = opcode&Source;
+    uchar aa;
+
+    bool carryST=chkFL(carry);
+
+    if(src==M)
+        aa=readM((*hl));
+    else
+        aa=*pReg(src);
+
+    if(chkFL(carry)&&((aa&0x1)==0)) //set carry according to  low bit in aa
+        (*f)=(*f)^carry; //invert carry
+    else
+        setFL(carry);
+
+    if(carryST)
+        (*a)=(aa>>1)|0x80;
+    else
+        (*a)=aa>>1;
+}
+
+void Mproc8080::cma()
+{
+    (*a)=~(*a);
+}
+
+void Mproc8080::cmc()
+{
+    (*f)=(*f)^carry; //invert carry
+}
+
+void Mproc8080::stc()
+{
+    setFL(carry);
+}
+
+void Mproc8080::jmp()
+{
+    incPC();
+    ushort lb = readM((*pc));
+    incPC();
+    ushort hb = readM((*pc));
+    (*pc)=(hb<<8)|lb;
+
+}
+
+void Mproc8080::jccc(uchar opcode)
+{
+    incPC();
+    ushort lb = readM((*pc));
+    incPC();
+    ushort hb = readM((*pc));
+    uchar con=(opcode&CCC)>>3;
+
+    if(condition(con))
+        (*pc)=(hb<<8)|lb;
+}
+
+void Mproc8080::call()
+{
+    incPC();
+    ushort lb = readM((*pc));
+    incPC();
+    ushort hb = readM((*pc));
+
+
+    //push pc on stack
+    incPC();
+    uchar *addr=(uchar*)pc;
+    (*sp)--;
+    mem->write((*sp),(*addr+1));
+    (*sp)--;
+    mem->write((*sp),(*(addr)));
+
+    (*pc)=(hb<<8)|lb;
+}
+
+void Mproc8080::cccc(uchar opcode)
+{
+    incPC();
+    ushort lb = readM((*pc));
+    incPC();
+    ushort hb = readM((*pc));
+    uchar con=(opcode&CCC)>>3;
+    if(!condition(con))
+        return;
+
+    //push pc on stack
+    incPC();
+    uchar *addr=(uchar*)pc;
+    (*sp)--;
+    mem->write((*sp),(*addr+1));
+    (*sp)--;
+    mem->write((*sp),(*(addr)));
+
+
+    (*pc)=(hb<<8)|lb;
+}
+
+void Mproc8080::ret()
+{
+    uchar hb=readM((*sp));
+    (*sp)++;
+    uchar lb=readM((*sp));
+    (*sp)++;
+    (*pc)=hb|lb;
+}
+
+void Mproc8080::rccc(uchar opcode)
+{
+    if(!condition(con))
+        return;
+    uchar hb=readM((*sp));
+    (*sp)++;
+    uchar lb=readM((*sp));
+    (*sp)++;
+    (*pc)=hb|lb;
+}
+
+void Mproc8080::rst(uchar opcode)
+{
+    ushort addr=0;
+    addr+=(opcode&NNN);
+    //push pc on stack
+    incPC();
+    uchar *addr=(uchar*)pc;
+    (*sp)--;
+    mem->write((*sp),(*addr+1));
+    (*sp)--;
+    mem->write((*sp),(*(addr)));
+
+    (*pc)=addr;
+}
+
+void Mproc8080::pchl()
+{
+    (*pc)=(*hl);
+}
+
+
+void Mproc8080::push(uchar opcode)
+{
+    uchar src = (opcode&RP)>>4;
+
+    if(src==SP)
+    {
+        (*sp)--;
+        mem->write((*sp),(*a));
+        (*sp)--;
+        mem->write((*sp),(*f));
+    }
+    else
+    {
+        uchar *addr=(uchar*)pRP(src);
+        (*sp)--;
+        mem->write((*sp),(*addr));
+        (*sp)--;
+        mem->write((*sp),(*(addr+1)));
+    }
+}
+
+void Mproc8080::pop(uchar opcode)
+{
+    uchar src = (opcode&RP)>>4;
+
+    if(src==SP)
+    {
+        (*f)=readM((*sp));
+        (*sp)++;
+        (*a)=readM((*sp));
+        (*sp)++;
+    }
+    else
+    {
+        uchar *addr=(uchar*)pRP(src);
+        (*(addr+1))=readM((*sp));
+        (*sp)++;
+        (*addr)=readM((*sp));
+        (*sp)++;
+    }
+}
+
+void Mproc8080::xthl()
+{
+    uchar l_old =(*l);
+    uchar h_old =(*h);
+
+    (*l)=readM(*sp);
+    (*h)=readM((*sp)+1);
+
+    mem->write((*sp),l_old);
+    mem->write((*sp)+1,h_old);
+}
+
+void Mproc8080::sphl()
+{
+    (*sp)=(*hl);
+}
+
+void Mproc8080::in()
+{
+    incPC();
+    uchar addr=readM((*pc));
+    (*a)=ports[addr];
+}
+
+void Mproc8080::out()
+{
+    incPC();
+    uchar addr=readM((*pc));
+    ports[addr]=(*a);
+}
+
+void Mproc8080::ei()
+{
+    inte=true;
+}
+
+void Mproc8080::di()
+{
+    inte=false;
 }
 
 

@@ -10,23 +10,25 @@ class Mproc8080 : public QObject
 {
     Q_OBJECT
 public:
+    uchar ports[0xFF];
     Ram *mem;
 //    PRom *pro;
-
 
     explicit Mproc8080(QObject *parent = 0);
     ~Mproc8080();
 private:
     bool par[0xFF];//parity lookup
+    bool inte;//interupt flip-flop
 
     uchar a[12];
     uchar *f;
     uchar *b,*c,*d,*e,*h,*l;
     ushort *bc,*de,*hl,*sp,*pc;
 
-    uchar*  pReg(uchar s);
-    ushort* pRP(uchar s);
-    uchar    setflags(ushort in);//cheks which flags need to be set and returns anwser
+    uchar*  pReg(uchar s);//returns pointer to register
+    ushort* pRP(uchar s);//returns pointer to registerPair
+    uchar   setflags(ushort in);//cheks which flags need to be set and returns anwser
+    bool    condition(uchar con);//returns if condition con is met
 
     void   inline incPC(){(*pc)++;}
     uchar  inline readM(ushort pos){return *mem->read((size_t)pos);}
@@ -66,6 +68,30 @@ private:
     void xri(uchar opcode);
     void cmp(uchar opcode);
     void cpi();
+    void rlc(uchar opcode);
+    void rrc(uchar opcode);
+    void ral(uchar opcode);
+    void rar(uchar opcode);
+    void cma();
+    void cmc();
+    void stc();
+    void jmp();
+    void jccc(uchar opcode);
+    void call();
+    void cccc(uchar opcode);
+    void ret();
+    void rccc(uchar opcode);
+    void rst(uchar opcode);
+    void pchl();
+    void push(uchar opcode);
+    void pop(uchar opcode);
+    void xthl();
+    void sphl();
+    void in();
+    void out();
+    void ei();
+    void di();
+    void hlt();
 signals:
 
 public slots:
