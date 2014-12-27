@@ -86,17 +86,6 @@ Mproc8080::~Mproc8080()
 {
 
 }
-bool Mproc8080::getInte() const
-{
-    return inte;
-}
-
-void Mproc8080::setInte(bool value)
-{
-    inte = value;
-}
-
-
 uchar *Mproc8080::pReg(uchar s)
 {
     switch(s)
@@ -790,9 +779,9 @@ void Mproc8080::call()
     incPC();
     uchar *addr=(uchar*)pc;
     (*sp)--;
-    mem->write((*sp),(*addr+1));
+    mem->write((*sp),(addr+1));
     (*sp)--;
-    mem->write((*sp),(*(addr)));
+    mem->write((*sp),addr);
 
     (*pc)=(hb<<8)|lb;
 }
@@ -811,9 +800,9 @@ void Mproc8080::cccc(uchar opcode)
     incPC();
     uchar *addr=(uchar*)pc;
     (*sp)--;
-    mem->write((*sp),(*addr+1));
+    mem->write((*sp),(addr+1));
     (*sp)--;
-    mem->write((*sp),(*(addr)));
+    mem->write((*sp),addr);
 
 
     (*pc)=(hb<<8)|lb;
@@ -830,6 +819,7 @@ void Mproc8080::ret()
 
 void Mproc8080::rccc(uchar opcode)
 {
+    uchar con=(opcode&CCC)>>3;
     if(!condition(con))
         return;
     uchar hb=readM((*sp));
@@ -841,17 +831,17 @@ void Mproc8080::rccc(uchar opcode)
 
 void Mproc8080::rst(uchar opcode)
 {
-    ushort addr=0;
-    addr+=(opcode&NNN);
+    ushort nnn=0;
+    nnn+=(opcode&NNN);
     //push pc on stack
     incPC();
     uchar *addr=(uchar*)pc;
     (*sp)--;
-    mem->write((*sp),(*addr+1));
+    mem->write((*sp),(addr+1));
     (*sp)--;
-    mem->write((*sp),(*(addr)));
+    mem->write((*sp),(addr));
 
-    (*pc)=addr;
+    (*pc)=nnn;
 }
 
 void Mproc8080::pchl()
@@ -867,17 +857,17 @@ void Mproc8080::push(uchar opcode)
     if(src==SP)
     {
         (*sp)--;
-        mem->write((*sp),(*a));
+        mem->write((*sp),a);
         (*sp)--;
-        mem->write((*sp),(*f));
+        mem->write((*sp),f);
     }
     else
     {
         uchar *addr=(uchar*)pRP(src);
         (*sp)--;
-        mem->write((*sp),(*addr));
+        mem->write((*sp),addr);
         (*sp)--;
-        mem->write((*sp),(*(addr+1)));
+        mem->write((*sp),(addr+1));
     }
 }
 
@@ -910,8 +900,8 @@ void Mproc8080::xthl()
     (*l)=readM(*sp);
     (*h)=readM((*sp)+1);
 
-    mem->write((*sp),l_old);
-    mem->write((*sp)+1,h_old);
+    mem->write((*sp),&l_old);
+    mem->write((*sp)+1,&h_old);
 }
 
 void Mproc8080::sphl()

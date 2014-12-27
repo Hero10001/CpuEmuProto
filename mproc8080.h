@@ -65,7 +65,7 @@ private:
     void ora(uchar opcode);
     void ori();
     void xra(uchar opcode);
-    void xri(uchar opcode);
+    void xri();
     void cmp(uchar opcode);
     void cpi();
     void rlc(uchar opcode);
@@ -91,7 +91,6 @@ private:
     void out();
     void ei();
     void di();
-    void hlt();
 signals:
 
 public slots:
