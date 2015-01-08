@@ -38,6 +38,82 @@
 #define PE       0x05
 #define P        0x06
 #define Mc       0x07 //(Mc==m): minus
+//Function values without regaddr or conditions
+#define LDA      0x3A
+#define STA      0x32
+#define LHLD     0x2A
+#define SHLD     0x22
+#define XCHG     0xEB
+#define ADI      0xC6
+#define ACI      0xCE
+#define SUI      0xD6
+#define SBI      0xDE
+#define DAA      0x27 //not implemented
+#define ANI      0xE6
+#define ORI      0xF6
+#define XRI      0xEE
+#define CPI      0xFE
+#define RLC      0x07
+#define RRC      0x0F
+#define RAL      0x17
+#define RAR      0x1F
+#define CMA      0x2F
+#define CMC      0x3F
+#define STC      0x37
+#define JMP      0xC3
+#define JMP1     0xCB //#
+#define CALL     0xCD
+#define RET      0xC9
+#define RET1     0xD9//#
+#define PCHL     0xE9
+#define XTHL     0xE3
+#define SPHL     0xF9
+#define IN       0xDB
+#define OUT      0xD3
+#define EI       0xFB
+#define DI       0xF3
+#define HLT      0x76
+#define NOP      0x00
+#define NOP1     0x10//#
+#define NOP2     0x20//#
+#define NOP3     0x30//#
+#define NOP4     0x08//#
+#define NOP5     0x18//#
+#define NOP6     0x28//#
+#define NOP7     0x38//#
+//#superfluous
+//Function values with RegPair field (set to 0b00)
+#define LXI      0x01
+#define LDAX     0x0A//*
+#define STAX     0x02//*
+#define INX      0x03
+#define DCX      0x0B
+#define DAD      0x09
+#define PUSH     0xC5
+#define POP      0xC1
+//*only work with RP=00 or RP=01 otherwise opcode==LDA/STA
+//Function values with Dest field only (set to 0b000)
+#define MVI      0x06
+#define INR      0x08
+#define DCR      0x09
+//Function values with Src field only (set to 0b000)
+#define ADD      0x80
+#define ADC      0x88
+#define SUB      0x90
+#define SBB      0x98
+#define ANA      0xA0
+#define ORA      0xB0
+#define XRA      0xA8
+#define CMP      0xB8
+//Function values with Condition field only (set to 0b000)
+#define JCCC     0xC2
+#define CCCC     0xC4
+#define RCCC     0xC0
+//Function values with Src and dest field (set to 0b000)
+#define MOV      0x40
+
+//Macro for detecting if enough timeunits in acummulator
+#define CHKTIME(t) if(this->accum<t) return false
 
 Mproc8080::Mproc8080(QObject *parent) : QObject(parent)
 {
@@ -64,7 +140,9 @@ Mproc8080::Mproc8080(QObject *parent) : QObject(parent)
     //a=uchar[12];
     memset(a,0,12);
     memset(ports,0,0xFF);
+    //set values
     inte=true;
+    accum=0;
     //set Flags
     f=a+1;
     *f=2;
@@ -176,6 +254,431 @@ bool Mproc8080::condition(uchar con)
         return !chkFL(sign);
     case Mc:
         return chkFL(sign);
+    default:
+        assert(false);
+        return false;
+    }
+}
+
+bool Mproc8080::callFunction(uchar opcode)
+{
+    //functions without fields
+    switch(opcode)
+    {
+    case LDA:
+        CHKTIME(13);
+        accum -= 13;
+        lda();
+        return true;
+    case STA:
+        CHKTIME(13);
+        accum -= 13;
+        sta();
+        return true;
+    case LHLD:
+        CHKTIME(16);
+        accum -= 16;
+        lhld();
+        return true;
+    case SHLD:
+        CHKTIME(16);
+        accum -= 16;
+        shld();
+        return true;
+    case XCHG:
+        CHKTIME(5);
+        accum -= 5;
+        xchg();
+        return true;
+    case ADI:
+        CHKTIME(7);
+        accum -= 7;
+        adi();
+        return true;
+    case ACI:
+        CHKTIME(7);
+        accum -= 7;
+        aci();
+        return true;
+    case SUI:
+        CHKTIME(7);
+        accum -= 7;
+        sui();
+        return true;
+    case SBI:
+        CHKTIME(7);
+        accum -= 7;
+        sbi();
+        return true;
+    case DAA:
+        assert(false);
+        return true;
+    case ANI:
+        CHKTIME(7);
+        accum -= 7;
+        ani();
+        return true;
+    case ORI:
+        CHKTIME(7);
+        accum -= 7;
+        ori();
+        return true;
+    case XRI:
+        CHKTIME(7);
+        accum -= 7;
+        xri();
+        return true;
+    case CPI:
+        CHKTIME(7);
+        accum -= 7;
+        cpi();
+        return true;
+    case RLC:
+        CHKTIME(4);
+        accum -= 4;
+        rlc();
+        return true;
+    case RRC:
+        CHKTIME(4);
+        accum -= 4;
+        rrc();
+        return true;
+    case RAL:
+        CHKTIME(4);
+        accum -= 4;
+        ral();
+        return true;
+    case RAR:
+        CHKTIME(4);
+        accum -= 4;
+        rar();
+        return true;
+    case CMA:
+        CHKTIME(4);
+        accum -= 4;
+        cma();
+        return true;
+    case CMC:
+        CHKTIME(4);
+        accum -= 4;
+        cmc();
+        return true;
+    case STC:
+        CHKTIME(4);
+        accum -= 4;
+        stc();
+        return true;
+    case JMP:
+    case JMP1:
+        CHKTIME(10);
+        accum -= 10;
+        jmp();
+        return true;
+    case CALL:
+        CHKTIME(17);
+        accum -= 17;
+        call();
+        return true;
+    case RET:
+    case RET1:
+        CHKTIME(10);
+        accum -= 10;
+        ret();
+        return true;
+    case PCHL:
+        CHKTIME(5);
+        accum -= 5;
+        pchl();
+        return true;
+    case XTHL:
+        CHKTIME(18);
+        accum -= 18;
+        xthl();
+        return true;
+    case SPHL:
+        CHKTIME(5);
+        accum -= 5;
+        sphl();
+        return true;
+    case IN:
+        CHKTIME(10);
+        accum -= 10;
+        in();
+        return true;
+    case OUT:
+        CHKTIME(10);
+        accum -= 10;
+        out();
+        return true;
+    case EI:
+        CHKTIME(4);
+        accum -= 4;
+        ei();
+        return true;
+    case DI:
+        CHKTIME(4);
+        accum -= 4;
+        di();
+        return true;
+    case HLT:
+        CHKTIME(7);
+        accum -= 7;
+        //TODO program HALT logic
+        return true;
+    case NOP:
+    case NOP1:
+    case NOP2:
+    case NOP3:
+    case NOP4:
+    case NOP5:
+    case NOP6:
+    case NOP7:
+        CHKTIME(4);
+        accum -= 4;
+        //Nothing
+        return true;
+    }
+
+    //functions with RP field
+    switch(opcode&(~RP))
+    {
+    case LXI:
+        CHKTIME(10);
+        accum -= 10;
+        lxi(opcode);
+        return true;
+    case LDAX:
+        CHKTIME(7);
+        accum -= 7;
+        ldax(opcode);
+        return true;
+    case STAX:
+        CHKTIME(7);
+        accum -= 7;
+        stax(opcode);
+        return true;
+    case INX:
+        CHKTIME(5);
+        accum -= 5;
+        inx(opcode);
+        return true;
+    case DCX:
+        CHKTIME(5);
+        accum -= 5;
+        dcx(opcode);
+        return true;
+    case DAD:
+        CHKTIME(10);
+        accum -= 10;
+        dad(opcode);
+        return true;
+    case PUSH:
+        CHKTIME(11);
+        accum -= 11;
+        push(opcode);
+        return true;
+    case POP:
+        CHKTIME(10);
+        accum -= 10;
+        pop(opcode);
+        return true;
+    }
+
+    //functions with dest field
+    switch(opcode&(~Dest))
+    {
+    case MVI:
+        if(((opcode&Dest)>>3)==M)//diffrent time for Memaccess
+        {
+            CHKTIME(10);
+            accum -= 10;
+            mvi(opcode);
+            return true;
+        }
+        CHKTIME(7);
+        accum -= 7;
+        mvi(opcode);
+        return true;
+    case INR:
+        if(((opcode&Dest)>>3)==M)
+        {
+            CHKTIME(10);
+            accum -= 10;
+            inr(opcode);
+            return true;
+        }
+        CHKTIME(5);
+        accum -= 5;
+        inr(opcode);
+        return true;
+    case DCR:
+        if(((opcode&Dest)>>3)==M)
+        {
+            CHKTIME(10);
+            accum -= 10;
+            dcr(opcode);
+            return true;
+        }
+        CHKTIME(5);
+        accum -= 5;
+        dcr(opcode);
+        return true;
+    }
+
+    //functions with src field
+    switch(opcode&(~Source))
+    {
+    case ADD:
+        if((opcode&Source)==M)
+        {
+            CHKTIME(7);
+            accum -= 7;
+            add(opcode);
+            return true;
+        }
+        CHKTIME(4);
+        accum -= 4;
+        add(opcode);
+        return true;
+    case ADC:
+        if((opcode&Source)==M)
+        {
+            CHKTIME(7);
+            accum -= 7;
+            adc(opcode);
+            return true;
+        }
+        CHKTIME(4);
+        accum -= 4;
+        adc(opcode);
+        return true;
+    case SUB:
+        if((opcode&Source)==M)
+        {
+            CHKTIME(7);
+            accum -= 7;
+            sub(opcode);
+            return true;
+        }
+        CHKTIME(4);
+        accum -= 4;
+        sub(opcode);
+        return true;
+    case SBB:
+        if((opcode&Source)==M)
+        {
+            CHKTIME(7);
+            accum -= 7;
+            sbb(opcode);
+            return true;
+        }
+        CHKTIME(4);
+        accum -= 4;
+        sbb(opcode);
+        return true;
+    case ANA:
+        if((opcode&Source)==M)
+        {
+            CHKTIME(7);
+            accum -= 7;
+            ana(opcode);
+            return true;
+        }
+        CHKTIME(4);
+        accum -= 4;
+        ana(opcode);
+        return true;
+    case ORA:
+        if((opcode&Source)==M)
+        {
+            CHKTIME(7);
+            accum -= 7;
+            ora(opcode);
+            return true;
+        }
+        CHKTIME(4);
+        accum -= 4;
+        ora(opcode);
+        return true;
+    case XRA:
+        if((opcode&Source)==M)
+        {
+            CHKTIME(7);
+            accum -= 7;
+            xra(opcode);
+            return true;
+        }
+        CHKTIME(4);
+        accum -= 4;
+        xra(opcode);
+        return true;
+    case CMP:
+        if((opcode&Source)==M)
+        {
+            CHKTIME(7);
+            accum -= 7;
+            cmp(opcode);
+            return true;
+        }
+        CHKTIME(4);
+        accum -= 4;
+        cmp(opcode);
+        return true;
+    }
+
+    //functions with src & dest field
+    switch(opcode&(~(Source|Dest)))
+    {
+    case ADD:
+        if(((opcode&Source)==M)||(((opcode&Dest)>>3)==M))
+        {
+            CHKTIME(7);
+            accum -= 7;
+            mov(opcode);
+            return true;
+        }
+        CHKTIME(5);
+        accum -= 5;
+        mov(opcode);
+        return true;
+    }
+
+    //functions with Condition field
+    bool  con=condition(((opcode&CCC)>>3));//checks con beforehand cuz time differs
+    switch(opcode&(~CCC))
+    {
+    case JCCC:
+        CHKTIME(10);
+        accum -= 10;
+        jccc(opcode);
+        return true;
+    case CCCC:
+        if(con)
+        {
+            CHKTIME(17);
+            accum -= 17;
+            cccc(opcode);
+            return true;
+        }
+        CHKTIME(11);
+        accum -= 11;
+        cccc(opcode);
+        return true;
+    case RCCC:
+        if(con)
+        {
+            CHKTIME(10);
+            accum -= 10;
+            rccc(opcode);
+            return true;
+        }
+        CHKTIME(5);
+        accum -= 5;
+        rccc(opcode);
+        return true;
+    default:
+        assert(false);
+        return false;
     }
 }
 
@@ -534,8 +1037,8 @@ void Mproc8080::ana(uchar opcode)
 void Mproc8080::ani()
 {
     incPC();
-    uchar src = readM((*pc));
-    uchar aa,bb,out;
+    uchar bb = readM((*pc));
+    uchar aa,out;
     aa=(*a);
 
     out= aa&bb;
@@ -545,14 +1048,14 @@ void Mproc8080::ani()
 
 void Mproc8080::ora(uchar opcode)
 {
-    uchar src = opcode&Source;
-    uchar aa,bb,out;
+    uchar bb = opcode&Source;
+    uchar aa,out;
     aa=(*a);
 
-    if(src==M)
+    if(bb==M)
         bb=readM((*hl));
     else
-        bb=*pReg(src);
+        bb=*pReg(bb);
 
     out= aa|bb;
     setflags(out);
@@ -562,8 +1065,8 @@ void Mproc8080::ora(uchar opcode)
 void Mproc8080::ori()
 {
     incPC();
-    uchar src = readM((*pc));
-    uchar aa,bb,out;
+    uchar bb = readM((*pc));
+    uchar aa,out;
     aa=(*a);
 
     out= aa|bb;
@@ -590,8 +1093,8 @@ void Mproc8080::xra(uchar opcode)
 void Mproc8080::xri()
 {
     incPC();
-    uchar src = readM((*pc));
-    uchar aa,bb,out;
+    uchar bb = readM((*pc));
+    uchar aa,out;
     aa=(*a);
 
     out= aa^bb;
@@ -647,87 +1150,55 @@ void Mproc8080::cpi()
         (*f)=(*f)^carry; //invert carry
 }
 
-void Mproc8080::rlc(uchar opcode)
+void Mproc8080::rlc()
 {
-    uchar src = opcode&Source;
-    uchar aa;
-
-    if(src==M)
-        aa=readM((*hl));
-    else
-        aa=*pReg(src);
-
-    if(chkFL(carry)&&((aa&0x80)==0)) //set carry according to  high bit in aa
+    if(chkFL(carry)&&(((*a)&0x80)==0)) //set carry according to  high bit in aa
         (*f)=(*f)^carry; //invert carry
     else
         setFL(carry);
     //rotate
-    (*a)= (aa << 1) | (aa >> 7);
+    (*a)= ((*a) << 1) | ((*a) >> 7);
 }
 
-void Mproc8080::rrc(uchar opcode)
+void Mproc8080::rrc()
 {
-    uchar src = opcode&Source;
-    uchar aa;
-
-    if(src==M)
-        aa=readM((*hl));
-    else
-        aa=*pReg(src);
-
-    if(chkFL(carry)&&((aa&0x80)==0)) //set carry according to  high bit in aa
+    if(chkFL(carry)&&(((*a)&0x80)==0)) //set carry according to  high bit in aa
         (*f)=(*f)^carry; //invert carry
     else
         setFL(carry);
     //rotate
-    (*a)= (aa << 7) | (aa >> 1);
+    (*a)= ((*a) << 7) | ((*a) >> 1);
 }
 
-void Mproc8080::ral(uchar opcode)
+void Mproc8080::ral()
 {
-    uchar src = opcode&Source;
-    uchar aa;
-
     bool carryST=chkFL(carry);
 
-    if(src==M)
-        aa=readM((*hl));
-    else
-        aa=*pReg(src);
-
-    if(chkFL(carry)&&((aa&0x80)==0)) //set carry according to  high bit in aa
+    if(chkFL(carry)&&(((*a)&0x80)==0)) //set carry according to  high bit in aa
         (*f)=(*f)^carry; //invert carry
     else
         setFL(carry);
 
     if(carryST)
-        (*a)=(aa<<1)|0x1;
+        (*a)=((*a)<<1)|0x1;
     else
-        (*a)=aa<<1;
+        (*a)=(*a)<<1;
 
 }
 
-void Mproc8080::rar(uchar opcode)
+void Mproc8080::rar()
 {
-    uchar src = opcode&Source;
-    uchar aa;
-
     bool carryST=chkFL(carry);
 
-    if(src==M)
-        aa=readM((*hl));
-    else
-        aa=*pReg(src);
-
-    if(chkFL(carry)&&((aa&0x1)==0)) //set carry according to  low bit in aa
+    if(chkFL(carry)&&(((*a)&0x1)==0)) //set carry according to  low bit in aa
         (*f)=(*f)^carry; //invert carry
     else
         setFL(carry);
 
     if(carryST)
-        (*a)=(aa>>1)|0x80;
+        (*a)=((*a)>>1)|0x80;
     else
-        (*a)=aa>>1;
+        (*a)=(*a)>>1;
 }
 
 void Mproc8080::cma()

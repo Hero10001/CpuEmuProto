@@ -19,6 +19,7 @@ public:
 private:
     bool par[0xFF];//parity lookup
     bool inte;//interupt flip-flop
+    int accum;
 
     uchar a[12];
     uchar *f;
@@ -29,13 +30,14 @@ private:
     ushort* pRP(uchar s);//returns pointer to registerPair
     uchar   setflags(ushort in);//cheks which flags need to be set and returns anwser
     bool    condition(uchar con);//returns if condition con is met
+    bool    callFunction(uchar opcode);
 
     void   inline incPC(){(*pc)++;}
     uchar  inline readM(ushort pos){return *mem->read((size_t)pos);}
     uchar  inline readP(ushort pos){return *mem->read((size_t)pos);}//probly no prom in an  8080
-    uchar  inline setFL(uchar flag){(*f)=(*f)|flag;}
+    void   inline setFL(uchar flag){(*f)=(*f)|flag;}
     bool   inline chkFL(uchar flag){return ((*f)&flag)>0;}
-    bool   inline chkAC(uchar aa,uchar bb,uchar out){return (((aa^bb)&0x10)!= out&0x10);}
+    bool   inline chkAC(uchar aa,uchar bb,uchar out){return (((aa^bb)&0x10)!= (out&0x10));}
 
     void mov(uchar opcode);
     void mvi(uchar opcode);
@@ -68,10 +70,10 @@ private:
     void xri();
     void cmp(uchar opcode);
     void cpi();
-    void rlc(uchar opcode);
-    void rrc(uchar opcode);
-    void ral(uchar opcode);
-    void rar(uchar opcode);
+    void rlc();
+    void rrc();
+    void ral();
+    void rar();
     void cma();
     void cmc();
     void stc();
